@@ -14,9 +14,9 @@
 #define FONT_SIZE 32
 
 // Game
-#define HCELLS 6
-#define VCELLS 5
-#define BOMB_COUNT 5
+#define HCELLS 10
+#define VCELLS 10
+#define BOMB_COUNT 25
 
 // cell bits:
 // 01111111
@@ -61,12 +61,37 @@ void Start() {
 			if (y < 0) continue;
 			if (y >= VCELLS) break;
 			for (int x = i%HCELLS - 1; x <= i%HCELLS + 1; ++x) {
-				if (x < 0) continue;
+				if (x < 0 || (x == i%HCELLS && y == i/HCELLS)) continue;
 				if (x >= HCELLS) break;
 
 				if (cells[y][x] & BOMB) {
 					++cells[i/HCELLS][i%HCELLS];
 				}
+			}
+		}
+	}
+}
+
+void Reveal(int yid, int xid) {
+	if (cells[yid][xid] & KNOWN) return;
+
+	cells[yid][xid] &= ~FLAG; // unflagging
+	cells[yid][xid] |= KNOWN; // revealing
+
+	if (++known >= HCELLS*VCELLS - BOMB_COUNT){
+		printf("VICTORY!\ngood job!\n");
+		ended = true;
+	}
+
+	if ((cells[yid][xid] & NUM) == 0) {
+		for (int newy = yid - 1; newy <= yid + 1; ++newy) {
+			if (newy < 0) continue;
+			if (newy >= VCELLS) break;
+			for (int newx = xid - 1; newx <= xid + 1; ++newx) {
+				if (newx < 0 || (newx == xid && newy == yid)) continue;
+				if (newx >= HCELLS) break;
+				
+				Reveal(newy, newx);
 			}
 		}
 	}
@@ -86,20 +111,14 @@ void Process() {
 	int yid = GetMouseY() / (WIN_H/VCELLS);
 
 	if (xid < HCELLS && xid >= 0 && yid < VCELLS && yid >= 0) {
-		if (leftBtn) {
+		if (leftBtn && !(cells[yid][xid] & FLAG)) {
 			if (cells[yid][xid] & BOMB) {
 				printf("BOOM!\nlost :c - better luck next time!\n");
 				ended = true;
-			} else if (!(cells[yid][xid] & KNOWN)) {
-				cells[yid][xid] &= ~FLAG; // unflagging
-				cells[yid][xid] |= KNOWN; // revealing
-
-				if (++known >= HCELLS*VCELLS - BOMB_COUNT){
-					printf("VICTORY!\ngood job!\n");
-					ended = true;
-				}
+			} else {
+				Reveal(yid, xid);
 			}
-		} else {
+		} else if (rightBtn) {
 			if (!(cells[yid][xid] & KNOWN)) cells[yid][xid] ^= FLAG;
 		}
 	}
@@ -122,7 +141,7 @@ void Draw() {
 		if (cells[yid][xid] & KNOWN) {
 			fill = GRAY;
 			draw_num = 1;
-		} else if (cells[yid][xid] & FLAG || (ended && cells[yid][xid] & BOMB)) {
+		} else if ((!ended && cells[yid][xid] & FLAG) || (ended && cells[yid][xid] & BOMB)) {
 			fill = RED;
 		}
 
