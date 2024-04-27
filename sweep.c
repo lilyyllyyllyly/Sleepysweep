@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #include <raylib.h>
@@ -32,11 +33,54 @@
 
 char cells[VCELLS][HCELLS];
 int known = 0;
+int ended = 0;
+
+void Start() {
+	known = 0;
+	ended = 0;
+
+	memset(cells, 0, sizeof(cells));
+
+	// Placing bombs
+	srand(time(NULL));
+	for (int i = 0; i < BOMB_COUNT; ++i) {
+		int r = rand() % (HCELLS*VCELLS);
+		while (cells[r/HCELLS][r%HCELLS] & BOMB) {
+			r = (r + 1) % (HCELLS*VCELLS);
+		}
+
+		cells[r/HCELLS][r%HCELLS] = BOMB;
+	}
+
+	// Initializing other cells
+	for (int i = 0; i < HCELLS*VCELLS; ++i) {
+		if (cells[i/HCELLS][i%HCELLS] & BOMB) continue;
+
+		// Counting bombs
+		for (int y = i/HCELLS - 1; y <= i/HCELLS + 1; ++y) {
+			if (y < 0) continue;
+			if (y >= VCELLS) break;
+			for (int x = i%HCELLS - 1; x <= i%HCELLS + 1; ++x) {
+				if (x < 0) continue;
+				if (x >= HCELLS) break;
+
+				if (cells[y][x] & BOMB) {
+					++cells[i/HCELLS][i%HCELLS];
+				}
+			}
+		}
+	}
+}
 
 void Process() {
 	int leftBtn  = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
 	int rightBtn = IsMouseButtonPressed(MOUSE_BUTTON_RIGHT);
 	if (!leftBtn && !rightBtn) return;
+
+	if (ended) {
+		Start();
+		return;
+	}
 
 	int xid = GetMouseX() / (WIN_W/HCELLS);
 	int yid = GetMouseY() / (WIN_H/VCELLS);
@@ -45,16 +89,18 @@ void Process() {
 		if (leftBtn) {
 			if (cells[yid][xid] & BOMB) {
 				printf("BOOM!\nlost :c - better luck next time!\n");
-				exit(EXIT_SUCCESS);
-			} else if (++known >= HCELLS*VCELLS - BOMB_COUNT) {
-				printf("VICTORY!\ngood job!\n");
-				exit(EXIT_SUCCESS);
+				ended = true;
+			} else if (!(cells[yid][xid] & KNOWN)) {
+				cells[yid][xid] &= ~FLAG; // unflagging
+				cells[yid][xid] |= KNOWN; // revealing
+
+				if (++known >= HCELLS*VCELLS - BOMB_COUNT){
+					printf("VICTORY!\ngood job!\n");
+					ended = true;
+				}
 			}
-			
-			cells[yid][xid] &= ~FLAG; // unflagging
-			cells[yid][xid] |= KNOWN; // revealing
 		} else {
-			cells[yid][xid] ^= FLAG;
+			if (!(cells[yid][xid] & KNOWN)) cells[yid][xid] ^= FLAG;
 		}
 	}
 }
@@ -76,7 +122,7 @@ void Draw() {
 		if (cells[yid][xid] & KNOWN) {
 			fill = GRAY;
 			draw_num = 1;
-		} else if (cells[yid][xid] & FLAG) {
+		} else if (cells[yid][xid] & FLAG || (ended && cells[yid][xid] & BOMB)) {
 			fill = RED;
 		}
 
@@ -111,36 +157,7 @@ int main() {
 	SetTargetFPS(FPS);
 	atexit(CloseWindow);
 
-	// Placing bombs
-	srand(time(NULL));
-	for (int i = 0; i < BOMB_COUNT; ++i) {
-		int r = rand() % (HCELLS*VCELLS);
-		while (cells[r/HCELLS][r%HCELLS] & BOMB) {
-			r = (r + 1) % (HCELLS*VCELLS);
-		}
-
-		cells[r/HCELLS][r%HCELLS] = BOMB;
-	}
-
-	// Initializing other cells
-	for (int i = 0; i < HCELLS*VCELLS; ++i) {
-		if (cells[i/HCELLS][i%HCELLS] & BOMB) continue;
-		cells[i/HCELLS][i%HCELLS] = 0;
-
-		// Counting bombs
-		for (int y = i/HCELLS - 1; y <= i/HCELLS + 1; ++y) {
-			if (y < 0) continue;
-			if (y >= VCELLS) break;
-			for (int x = i%HCELLS - 1; x <= i%HCELLS + 1; ++x) {
-				if (x < 0) continue;
-				if (x >= HCELLS) break;
-
-				if (cells[y][x] & BOMB) {
-					++cells[i/HCELLS][i%HCELLS];
-				}
-			}
-		}
-	}
+	Start();
 
 	// Main loop
 	while (!WindowShouldClose()) {
