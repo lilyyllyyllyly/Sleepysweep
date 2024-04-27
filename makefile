@@ -1,5 +1,5 @@
 COMP=clang
-OPTIONS=-Wall -Wextra -Werror -Wno-unused-parameter -Wno-unused-but-set-variable -O2
+OPTIONS=-Wall -Wextra -Werror -O2
 DEBUG=-fsanitize=address,undefined -g3
 
 SOURCES=sweep.c
