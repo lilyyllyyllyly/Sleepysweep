@@ -5,6 +5,10 @@
 
 #include <raylib.h>
 
+#ifdef PLATFORM_WEB
+    #include <emscripten/emscripten.h>
+#endif
+
 // Window/Rendering
 #define WIN_W 800
 #define WIN_H 600
@@ -164,6 +168,11 @@ void Draw() {
 	EndDrawing();
 }
 
+void MainLoop() {
+	Process();
+	Draw();
+}
+
 int main() {
 	if (BOMB_COUNT > HCELLS*VCELLS) {
 		fprintf(stderr, "[%s:%d (%s)] ERROR: BOMB_COUNT exceeds total cell count (HCELLS*VCELLS).\n", __FILE__, __LINE__, __func__);
@@ -173,16 +182,19 @@ int main() {
 	// Initializing window
 	SetTraceLogLevel(LOG_WARNING); /* getting rid of annoying init info */
 	InitWindow(WIN_W, WIN_H, "sweeper :3");
-	SetTargetFPS(FPS);
 	atexit(CloseWindow);
 
 	Start();
 
 	// Main loop
+#ifndef PLATFORM_WEB
+	SetTargetFPS(FPS);
 	while (!WindowShouldClose()) {
-		Process();
-		Draw();
+		MainLoop();
 	}
+#else
+	emscripten_set_main_loop(MainLoop, FPS, 1);
+#endif
 	
 	exit(EXIT_SUCCESS);
 }
